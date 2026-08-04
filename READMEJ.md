@@ -8,6 +8,8 @@ VRM アバターが口を動かし、同じ音がネットラジオとして LAN
 すべてローカルで完結する。曲情報の補完(MusicBrainz)だけがオンライン処理で、
 これも手動実行の別コマンドになっている。
 
+For English, see [README.md](README.md).
+
 ```
         ┌──────────────┐
         │ library/*.mp3│
@@ -385,4 +387,12 @@ llama-server か VOICEVOX が落ちている。表示系のログ(tmux の progr
 ## 10. ドキュメント
 
 - **[TECHNICALJ.md](TECHNICALJ.md)** — 内部構造、設計判断、実装中に詰まった点と解決策
+- **[README.md](README.md)** / **[TECHNICAL.md](TECHNICAL.md)** — English versions
 - **[HANDOFF.md](HANDOFF.md)** — 元の設計仕様と、フェーズごとの実装メモ
+
+## クレジット
+
+- 音声合成: [VOICEVOX](https://voicevox.hiroshiba.jp/) — `VOICEVOX:波音リツ`
+- 3D描画: [three.js](https://threejs.org/) と
+  [@pixiv/three-vrm](https://github.com/pixiv/three-vrm)(MIT、`web/libs/` に同梱)
+- 曲情報: [MusicBrainz](https://musicbrainz.org/)
