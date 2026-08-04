@@ -485,10 +485,11 @@ telnet は `var.set paused = true` / `var.set paused = false`。
 - 実測: PAUSE前 167.9秒 → 6秒待機 → 再開後4秒で 163.7秒。停止中は進んでいない
 - PAUSE中は出力が blank を引くため `remaining` が取れない(-1 を返す)
 
-### PREV の頭出しには `radio_local.seek`
+### PREV の頭出し(この節は Phase 4 で覆った)
 
-`radio_local.seek <seconds>`(負値で巻き戻し)が使える。3秒ルールの判定は
-`remaining` と DB の `duration_sec` から経過秒を出す。
+Phase 3 の時点では `radio_local.seek <seconds>` に負値を渡せば巻き戻せると
+考えていたが、**Liquidsoap 2.4 は後方シークができない**ことが Phase 4 で判明した
+(戻り値だけ成功を返す)。詳細と代替実装は「Phase 4 実装メモ」を参照。
 
 ### Icecast
 

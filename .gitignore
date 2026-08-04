@@ -5,7 +5,8 @@ __pycache__/
 
 # ローカル固有の設定(メールアドレスやパスワードを入れる場所)
 config/settings.local.toml
-.claude/settings.local.json
+# 書き込み中の一時ファイル (.tmp.NNN.xxxx) も拾うため後方一致にする
+.claude/settings.local.json*
 
 # 音楽ライブラリ本体。著作物なのでリポジトリには入れない
 # (ディレクトリだけは残す)
