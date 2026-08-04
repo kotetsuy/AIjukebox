@@ -1,0 +1,28 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+
+# ローカル固有の設定(メールアドレスやパスワードを入れる場所)
+config/settings.local.toml
+.claude/settings.local.json
+
+# 音楽ライブラリ本体。著作物なのでリポジトリには入れない
+# (ディレクトリだけは残す)
+library/*
+!library/.gitkeep
+
+# 生成物・実行時データ
+# library.db は filepath を絶対パスで持つため、環境間で共有できない。
+# 新しい環境では scan_library.py を実行し直す。
+db/
+cache/
+logs/
+
+# VRMモデル。16MBのバイナリで、配布条件はモデルごとに異なる
+vroid/*.vrm
+
+# エディタ / OS
+.DS_Store
+._*
+*.swp

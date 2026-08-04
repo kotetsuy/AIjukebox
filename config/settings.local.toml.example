@@ -1,0 +1,13 @@
+# config/settings.local.toml にコピーして使う。こちらは git 管理外なので、
+# メールアドレスやパスワードなどリポジトリに入れたくない値を書く。
+# settings.toml と同じ構造で、変えたいキーだけ書けばよい。
+
+[musicbrainz]
+# MusicBrainz は User-Agent に連絡先を要求する(1req/秒制限と合わせて規約)
+contact = "you@example.com"
+
+# 配信を LAN の外に出す場合はパスワードも変えること。
+# ただし Liquidsoap と Icecast 側は TOML を読まないので、
+# liquidsoap/radio.liq と config/icecast.xml も合わせて直す必要がある。
+# [icecast]
+# password = "..."

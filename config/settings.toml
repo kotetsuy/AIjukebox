@@ -1,0 +1,71 @@
+# AIjukebox 設定
+# パスは相対指定の場合、プロジェクトルート (このファイルの親の親) からの相対解決。
+
+[paths]
+library = "library"
+db = "db/library.db"
+intro_cache = "cache/intros"
+log = "logs/program.log"
+
+[scan]
+# 走査対象拡張子(小文字・ドット込み)
+extensions = [".mp3", ".flac", ".m4a", ".ogg", ".opus"]
+
+[musicbrainz]
+# MusicBrainz は User-Agent に連絡先を要求する。
+# 実際のアドレスは config/settings.local.toml (git管理外) に書くこと。
+#
+#   [musicbrainz]
+#   contact = "you@example.com"
+app_name = "AIjukebox"
+app_version = "0.1.0"
+contact = "CHANGE_ME@example.com"
+# 1req/秒制限。余裕をみて 1.1 秒
+request_interval_sec = 1.1
+# ext:score がこの値未満の候補は採用しない
+min_score = 90
+
+# --- 以下は Phase 2 以降で使用 ---
+
+[llm]
+base_url = "http://localhost:8080"
+model = "qwen3.6"
+# 100文字のコメントでも日本語は150トークンに収まらず文が途中で切れるため 256。
+# 長さは max_chars 側のトリムで担保する。
+max_tokens = 256
+temperature = 0.8
+# 生成コメントの最大文字数(超過分は文末「。」でトリム)
+max_chars = 120
+# プロンプトに添付する直近コメント数
+recent_intros = 3
+
+[voicevox]
+base_url = "http://localhost:50021"
+speaker_name = "波音リツ"
+style_name = "ノーマル"
+
+[liquidsoap]
+telnet_host = "127.0.0.1"
+telnet_port = 1234
+music_queue = "music"
+dj_queue = "dj_intro"
+icecast_output = "radio_ice"
+local_output = "radio_local"
+
+[icecast]
+host = "localhost"
+# 8000 は表示系の three-vrm が使うため 8100。config/icecast.xml と揃えること。
+port = 8100
+mount = "radio.mp3"
+password = "hackme"
+
+[program]
+# 表示系(VRMアバター + トランスポート)と WebSocket を同じポートで出す
+websocket_host = "0.0.0.0"
+websocket_port = 8765
+# intro を Liquidsoap に push してから実際に音が出るまでのズレ(リップシンク補正)
+intro_lipsync_delay_ms = 300
+# 直近何曲を選曲候補から除外するか
+exclude_history = 10
+# PREV の「頭出し」判定しきい値(秒)
+prev_restart_threshold_sec = 3.0

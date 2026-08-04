@@ -1,0 +1,67 @@
+<!-- AIjukebox 用 Icecast 設定。
+
+     sudo なしでユーザー権限のまま起動できるようにしてある
+     (chroot / changeowner を使わず、ログはプロジェクト内に書く)。
+
+       icecast2 -c config/icecast.xml
+
+     ポートは 8100。HANDOFF は 8000 としていたが、表示系の three-vrm が
+     8000 を使うため衝突する。settings.toml の [icecast] と揃えること。 -->
+<icecast>
+    <location>Local</location>
+    <admin>admin@localhost</admin>
+
+    <limits>
+        <clients>20</clients>
+        <sources>2</sources>
+        <queue-size>524288</queue-size>
+        <client-timeout>30</client-timeout>
+        <header-timeout>15</header-timeout>
+        <source-timeout>10</source-timeout>
+        <!-- burst-on-connect は 2.5 で廃止。burst-size だけで足りる -->
+        <burst-size>65535</burst-size>
+    </limits>
+
+    <!-- パスワードは Icecast 既定のプレースホルダのまま。LAN内でしか
+         公開しない前提。外に出すなら、ここと settings.toml の [icecast]、
+         liquidsoap/radio.liq の3箇所を揃えて変えること
+         (Liquidsoap と Icecast は TOML を読まないので共有できない)。 -->
+    <authentication>
+        <source-password>hackme</source-password>
+        <relay-password>hackme</relay-password>
+        <admin-user>admin</admin-user>
+        <admin-password>hackme</admin-password>
+    </authentication>
+
+    <hostname>localhost</hostname>
+
+    <!-- 0.0.0.0 で待ち受け、LAN内のスマホから受信できるようにする -->
+    <listen-socket>
+        <port>8100</port>
+        <bind-address>0.0.0.0</bind-address>
+    </listen-socket>
+
+    <fileserve>1</fileserve>
+
+    <paths>
+        <basedir>/usr/share/icecast2</basedir>
+        <!-- logdir は相対パス。プロジェクトルートから起動すること
+             (start_all.sh は cd してから icecast2 を起動する) -->
+        <logdir>logs</logdir>
+        <webroot>/usr/share/icecast2/web</webroot>
+        <adminroot>/usr/share/icecast2/admin</adminroot>
+        <alias source="/" destination="/status.xsl"/>
+    </paths>
+
+    <logging>
+        <accesslog>icecast-access.log</accesslog>
+        <errorlog>icecast-error.log</errorlog>
+        <loglevel>3</loglevel>
+        <logsize>10000</logsize>
+    </logging>
+
+    <!-- ユーザー権限のまま動かすので chroot / changeowner は使わない -->
+    <security>
+        <chroot>0</chroot>
+    </security>
+</icecast>

@@ -1,0 +1,19 @@
+[project]
+name = "aijukebox"
+version = "0.1.0"
+description = "ローカルAIラジオDJ (AIjukebox)"
+requires-python = ">=3.12"
+dependencies = [
+    "mutagen>=1.47",
+    "musicbrainzngs>=0.7.1",
+    "httpx>=0.27",
+    "aiohttp>=3.9",
+]
+
+[dependency-groups]
+dev = []
+
+# アプリケーション(ライブラリではない)なのでビルドしない。
+# 依存だけを .venv に入れ、scripts/ は直接実行する。
+[tool.uv]
+package = false

@@ -1,0 +1,282 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>AIjukebox</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; height: 100vh; overflow: hidden;
+    background: #12121c; color: #eaeaf2;
+    font-family: system-ui, "Noto Sans JP", sans-serif;
+  }
+  canvas { display: block; position: fixed; inset: 0; }
+
+  #status {
+    position: fixed; top: 10px; left: 12px; z-index: 10;
+    font-size: 12px; color: #8a8aa0;
+  }
+
+  #nowplaying {
+    position: fixed; top: 32px; left: 50%; transform: translateX(-50%);
+    z-index: 10; text-align: center; max-width: 90vw;
+  }
+  #title  { font-size: 26px; font-weight: 600; letter-spacing: .02em; }
+  #artist { font-size: 15px; color: #a0a0bb; margin-top: 4px; }
+  #nextup { font-size: 12px; color: #6f6f8a; margin-top: 10px; }
+
+  #subtitle {
+    position: fixed; bottom: 132px; left: 50%; transform: translateX(-50%);
+    z-index: 10; max-width: 44em; padding: 10px 18px;
+    background: rgba(0,0,0,.55); border-radius: 10px;
+    font-size: 16px; line-height: 1.6; text-align: center;
+    display: none;
+  }
+
+  #transport {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+    z-index: 10; display: flex; gap: 14px;
+  }
+  button {
+    width: 68px; height: 68px; border-radius: 50%;
+    border: 1px solid #34344a; background: #1e1e2e; color: #eaeaf2;
+    font-size: 22px; cursor: pointer; transition: background .12s, opacity .12s;
+  }
+  button:hover:not(:disabled) { background: #2a2a40; }
+  button:active:not(:disabled) { background: #35354f; }
+  /* NEXT は intro 生成中(GENERATING)だけグレーアウトする */
+  button:disabled { opacity: .32; cursor: not-allowed; }
+  #playpause { width: 82px; height: 82px; font-size: 26px; }
+</style>
+
+<div id="status">接続中…</div>
+
+<div id="nowplaying">
+  <div id="title">—</div>
+  <div id="artist"></div>
+  <div id="nextup"></div>
+</div>
+
+<div id="subtitle"></div>
+
+<div id="transport">
+  <button id="prev"      title="前の曲 / 頭出し">⏮</button>
+  <button id="playpause" title="再生 / 一時停止">⏸</button>
+  <button id="next"      title="次の曲">⏭</button>
+</div>
+
+<script type="importmap">
+  {
+    "imports": {
+      "three": "/libs/three/three.module.js",
+      "three/addons/": "/libs/three/addons/",
+      "@pixiv/three-vrm": "/libs/three-vrm/three-vrm.module.min.js"
+    }
+  }
+</script>
+
+<script type="module">
+  import * as THREE from "three";
+  import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+  import { VRMLoaderPlugin, VRMUtils } from "@pixiv/three-vrm";
+
+  const VRM_URL = "/vrm/dj.vrm";
+  const WS_URL = `ws://${location.host}/ws`;
+
+  const $ = (id) => document.getElementById(id);
+  const statusEl = $("status");
+  const setStatus = (s) => (statusEl.textContent = s);
+
+  // VOICEVOX の viseme 名 → VRM の表情名
+  const VISEME_MAP = {
+    aa: "aa", I: "ih", U: "ou", E: "ee", O: "oh", nn: "nn", sil: null,
+  };
+
+  // ---- Three.js --------------------------------------------------------
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.setPixelRatio(devicePixelRatio);
+  document.body.appendChild(renderer.domElement);
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x12121c);
+
+  // バストアップ。顔だけのアップにするとトランスポートボタンが体に重なるので、
+  // 少し引いて下半分に UI の余白を作る。
+  const camera = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 0.1, 20);
+  camera.position.set(0, 1.28, 2.4);
+  camera.lookAt(0, 1.18, 0);
+
+  const light = new THREE.DirectionalLight(0xffffff, 1.2);
+  light.position.set(1, 2, 2);
+  scene.add(light);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+
+  addEventListener("resize", () => {
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+  });
+
+  let vrm = null;
+  const clock = new THREE.Clock();
+
+  // ---- リップシンク ----------------------------------------------------
+  // 音声は Liquidsoap がミックスして鳴らしているので、ブラウザは音を出さない。
+  // したがって AudioContext の時計は使えず、performance.now() で進める。
+  let visemeSchedule = []; // [{time(ms), name}] 昇順
+
+  function scheduleVisemes(msg) {
+    const base = performance.now() + (msg.delay_ms ?? 0);
+    const items = [];
+    const { visemes = [], vtimes = [], vdurations = [] } = msg;
+    for (let i = 0; i < visemes.length; i++) {
+      const t0 = base + (vtimes[i] ?? 0);
+      items.push({ time: t0, name: visemes[i] });
+      items.push({ time: t0 + (vdurations[i] ?? 100), name: "sil" });
+    }
+    items.sort((a, b) => a.time - b.time);
+    visemeSchedule = items;
+  }
+
+  function applyViseme(name) {
+    if (!vrm?.expressionManager) return;
+    const mgr = vrm.expressionManager;
+    for (const v of Object.values(VISEME_MAP)) if (v) mgr.setValue(v, 0);
+    const expr = VISEME_MAP[name];
+    if (expr) mgr.setValue(expr, 1.0);
+  }
+
+  // ---- 待機モーション(呼吸・体揺れ・頭の微動)------------------------
+  const IDLE = { breathHz: 0.25, swayHz: 0.13, headHz: 0.08 };
+  function applyIdlePose(t) {
+    if (!vrm?.humanoid) return;
+    const get = (n) => vrm.humanoid.getNormalizedBoneNode(n);
+    const spine = get("spine");
+    const chest = get("chest") || get("upperChest");
+    const neck = get("neck");
+    const head = get("head");
+
+    const breath = Math.sin(t * 2 * Math.PI * IDLE.breathHz);
+    const sway = Math.sin(t * 2 * Math.PI * IDLE.swayHz);
+    const sway2 = Math.sin(t * 2 * Math.PI * IDLE.swayHz * 1.3 + 0.7);
+
+    if (spine) { spine.rotation.x = breath * 0.012; spine.rotation.z = sway * 0.02; }
+    if (chest) { chest.rotation.x = breath * 0.008; chest.rotation.z = sway2 * 0.012; }
+    if (neck) neck.rotation.z = sway * 0.01;
+    if (head) {
+      head.rotation.x = Math.sin(t * 2 * Math.PI * IDLE.headHz * 1.3 + 1.3) * 0.015;
+      head.rotation.y = Math.sin(t * 2 * Math.PI * IDLE.headHz) * 0.03;
+    }
+  }
+
+  function applyRestPose() {
+    if (!vrm?.humanoid) return;
+    const get = (n) => vrm.humanoid.getNormalizedBoneNode(n);
+    const lUp = get("leftUpperArm"), rUp = get("rightUpperArm");
+    const lLo = get("leftLowerArm"), rLo = get("rightLowerArm");
+    if (lUp) lUp.rotation.z = -1.3;
+    if (rUp) rUp.rotation.z = 1.3;
+    if (lLo) lLo.rotation.y = 0.25;
+    if (rLo) rLo.rotation.y = -0.25;
+  }
+
+  function animate() {
+    requestAnimationFrame(animate);
+    const delta = clock.getDelta();
+    if (vrm) {
+      applyIdlePose(performance.now() / 1000);
+      const now = performance.now();
+      while (visemeSchedule.length && visemeSchedule[0].time <= now) {
+        applyViseme(visemeSchedule.shift().name);
+      }
+      vrm.update(delta);
+    }
+    renderer.render(scene, camera);
+  }
+  animate();
+
+  // ---- VRM 読み込み ----------------------------------------------------
+  const loader = new GLTFLoader();
+  loader.register((parser) => new VRMLoaderPlugin(parser));
+  setStatus("VRM 読み込み中…");
+  loader.load(
+    VRM_URL,
+    (gltf) => {
+      vrm = gltf.userData.vrm;
+      VRMUtils.removeUnnecessaryJoints(gltf.scene);
+      scene.add(gltf.scene);
+      VRMUtils.rotateVRM0(vrm);
+      applyRestPose();
+      connectWS();
+    },
+    (p) => p.lengthComputable &&
+      setStatus(`VRM 読み込み中… ${Math.round((p.loaded / p.total) * 100)}%`),
+    (err) => setStatus("VRM 読み込み失敗: " + err.message),
+  );
+
+  // ---- WebSocket -------------------------------------------------------
+  let ws = null;
+  let paused = false;
+  let subtitleTimer = null;
+
+  const send = (cmd) => ws?.readyState === WebSocket.OPEN &&
+    ws.send(JSON.stringify({ cmd }));
+
+  $("prev").onclick = () => send("prev");
+  $("next").onclick = () => send("next");
+  $("playpause").onclick = () => send(paused ? "play" : "pause");
+
+  function showSubtitle(text) {
+    const el = $("subtitle");
+    el.textContent = text;
+    el.style.display = text ? "block" : "none";
+    clearTimeout(subtitleTimer);
+    if (text) {
+      // 読み上げ時間ぶん出しておく。日本語はおおよそ 7 文字/秒
+      subtitleTimer = setTimeout(
+        () => (el.style.display = "none"), 3000 + text.length * 145);
+    }
+  }
+
+  function connectWS() {
+    ws = new WebSocket(WS_URL);
+    ws.onopen = () => setStatus("接続済み");
+    ws.onclose = () => { setStatus("再接続中…"); setTimeout(connectWS, 2000); };
+    ws.onerror = () => setStatus("WS エラー");
+
+    ws.onmessage = (e) => {
+      let msg;
+      try { msg = JSON.parse(e.data); } catch { return; }
+
+      switch (msg.event) {
+        case "now_playing":
+          $("title").textContent = msg.title || "—";
+          $("artist").textContent = msg.artist || "";
+          break;
+
+        case "next_up":
+          $("nextup").textContent = `next ▸ ${msg.artist} - ${msg.title}`;
+          break;
+
+        case "state":
+          // GENERATING の間だけ NEXT を無効化する(HANDOFF §3)
+          $("next").disabled = msg.phase !== "NEXT_READY";
+          break;
+
+        case "paused":
+          paused = msg.value;
+          $("playpause").textContent = paused ? "▶" : "⏸";
+          break;
+
+        case "intro":
+          scheduleVisemes(msg);
+          showSubtitle(msg.text || "");
+          break;
+
+        case "error":
+          console.warn("service error:", msg);
+          break;
+      }
+    };
+  }
+</script>
