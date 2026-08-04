@@ -9,7 +9,27 @@
     background: #12121c; color: #eaeaf2;
     font-family: system-ui, "Noto Sans JP", sans-serif;
   }
-  canvas { display: block; position: fixed; inset: 0; }
+  /* 背景は WebGL ではなく DOM 側で持つ。CSS の background-size:cover に
+     任せられるので、アスペクト比の違う画像でも歪まない。
+     canvas は alpha:true なので、この上にアバターだけが乗る。 */
+  #bg {
+    position: fixed; inset: 0; z-index: -2;
+    background-color: #12121c;
+    background-size: cover; background-position: center;
+    /* ぼかし量は画像の解像度に応じて JS 側で決める(setBackground 参照)。
+       scale はぼかしで縁が透けるのを防ぐため。 */
+    filter: blur(7px) brightness(.85);
+    transform: scale(1.06);
+  }
+  /* アートワークは明るいものも暗いものもあるので、文字が読めるように
+     上下を暗く落とす。曲名と字幕・ボタンの領域に効かせる。 */
+  #bg::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(
+      to bottom, rgba(0,0,0,.55) 0%, rgba(0,0,0,.15) 30%,
+                 rgba(0,0,0,.15) 60%, rgba(0,0,0,.65) 100%);
+  }
+  canvas { display: block; position: fixed; inset: 0; z-index: -1; }
 
   #status {
     position: fixed; top: 10px; left: 12px; z-index: 10;
@@ -20,9 +40,11 @@
     position: fixed; top: 32px; left: 50%; transform: translateX(-50%);
     z-index: 10; text-align: center; max-width: 90vw;
   }
+  /* 明るいアートワークの上でも読めるように影を付ける */
+  #nowplaying > * { text-shadow: 0 2px 10px rgba(0,0,0,.9), 0 0 3px rgba(0,0,0,.7); }
   #title  { font-size: 26px; font-weight: 600; letter-spacing: .02em; }
-  #artist { font-size: 15px; color: #a0a0bb; margin-top: 4px; }
-  #nextup { font-size: 12px; color: #6f6f8a; margin-top: 10px; }
+  #artist { font-size: 15px; color: #c8c8dd; margin-top: 4px; }
+  #nextup { font-size: 12px; color: #9a9ab4; margin-top: 10px; }
 
   #subtitle {
     position: fixed; bottom: 132px; left: 50%; transform: translateX(-50%);
@@ -47,6 +69,8 @@
   button:disabled { opacity: .32; cursor: not-allowed; }
   #playpause { width: 82px; height: 82px; font-size: 26px; }
 </style>
+
+<div id="bg"></div>
 
 <div id="status">接続中…</div>
 
@@ -97,8 +121,8 @@
   renderer.setPixelRatio(devicePixelRatio);
   document.body.appendChild(renderer.domElement);
 
+  // 背景は #bg (CSS) が持つので、シーンは透過のままにする
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x12121c);
 
   // バストアップ。顔だけのアップにするとトランスポートボタンが体に重なるので、
   // 少し引いて下半分に UI の余白を作る。
@@ -226,6 +250,27 @@
   $("next").onclick = () => send("next");
   $("playpause").onclick = () => send(paused ? "play" : "pause");
 
+  // 背景の差し替え。サーバが「アートワーク → images/ からランダム → null」の
+  // 順で決めた URL が来る。null のときは単色 (#12121c) に戻す。
+  // 読み込み完了を待ってから差し替えるので、切り替え時に一瞬素の色が見えない。
+  function setBackground(url) {
+    const bg = $("bg");
+    if (!url) {
+      bg.style.backgroundImage = "";
+      return;
+    }
+    const img = new Image();
+    img.onload = () => {
+      // アートワークは 300〜500px 角が多く、全画面に伸ばすと粗が出るので
+      // 強めにぼかす。images/ の写真は元が大きいので、ほとんどぼかさない。
+      const blur = img.naturalWidth < 900 ? 7 : 2;
+      bg.style.filter = `blur(${blur}px) brightness(.85)`;
+      bg.style.backgroundImage = `url("${url}")`;
+    };
+    img.onerror = () => (bg.style.backgroundImage = "");
+    img.src = url;
+  }
+
   function showSubtitle(text) {
     const el = $("subtitle");
     el.textContent = text;
@@ -252,6 +297,7 @@
         case "now_playing":
           $("title").textContent = msg.title || "—";
           $("artist").textContent = msg.artist || "";
+          setBackground(msg.background);
           break;
 
         case "next_up":

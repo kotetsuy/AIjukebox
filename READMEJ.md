@@ -134,6 +134,9 @@ MusicBrainz を使わないなら、この設定は省いてよい(`enrich_mb.py
 ```bash
 cp -r /path/to/music/*.mp3 library/
 cp /path/to/avatar.vrm vroid/dj.vrm
+
+# 任意: アートワークが無い曲の背景に使う画像
+mkdir -p images && cp /path/to/*.jpg images/
 ```
 
 対応形式は mp3 / flac / m4a / ogg / opus。サブディレクトリも再帰的に読む。
@@ -243,6 +246,20 @@ tmux attach -t aijukebox     # Ctrl-b d でデタッチ
 - 曲名・アーティスト・次にかかる曲が画面上部に出る
 - DJ の紹介文は字幕として表示され、アバターが口を動かす
 - 一時停止してもネットラジオのリスナーは切断されない(無音が流れ続ける)
+
+### 背景
+
+曲が変わるたびに次の順で決まる。
+
+1. **その曲に埋め込まれたアートワーク**(mp3 の APIC / m4a の covr / FLAC の Picture)
+2. アートワークが無ければ **`images/` の画像からランダム**
+3. `images/` が無ければ単色 `#12121c`
+
+`images/` に好きな jpg / png を置けばよい(`.gitignore` 済み)。
+アートワークは `cache/artwork/` に取り出してキャッシュされる。
+
+> `images/` は起動時に有無を見るので、あとから作った場合は
+> program_service を再起動する。
 
 紹介文の生成は 1.5 秒ほど、音声合成は 0.25 秒ほどで終わる。
 一度作った紹介文は `cache/intros/` に残るので、2回目以降は即座に再生される。

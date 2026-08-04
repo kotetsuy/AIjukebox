@@ -5,6 +5,8 @@
 library = "library"
 db = "db/library.db"
 intro_cache = "cache/intros"
+# 曲から取り出したアートワーク(表示系の背景に使う)
+artwork_cache = "cache/artwork"
 log = "logs/program.log"
 
 [scan]

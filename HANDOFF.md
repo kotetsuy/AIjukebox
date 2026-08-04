@@ -617,7 +617,8 @@ PREV でキャッシュを再利用したときも口が動くのはこのため
 表示系 → service:  {"cmd": "next" | "prev" | "pause" | "play"}
 
 service → 表示系:
-  {"event": "now_playing", "title":…, "artist":…, "filepath":…}
+  {"event": "now_playing", "title":…, "artist":…, "filepath":…,
+                           "background": "/artwork/….jpg" | "/images/….jpg" | null}
   {"event": "next_up",     "title":…, "artist":…}
   {"event": "state",       "phase": "GENERATING" | "NEXT_READY"}
   {"event": "paused",      "value": true|false}

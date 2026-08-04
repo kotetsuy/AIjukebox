@@ -35,6 +35,7 @@ import aiohttp
 import httpx
 from aiohttp import web
 
+import artwork
 import dj_prompt
 import voicevox_synth
 from common import (
@@ -48,8 +49,12 @@ from common import (
 from liquidsoap_client import LiquidsoapClient, LiquidsoapError
 from visemes import mora_to_visemes
 
-WEB_DIR = Path(__file__).resolve().parent.parent / "web"
-VRM_DIR = Path(__file__).resolve().parent.parent / "vroid"
+PROJECT_DIR = Path(__file__).resolve().parent.parent
+WEB_DIR = PROJECT_DIR / "web"
+VRM_DIR = PROJECT_DIR / "vroid"
+# 背景のフォールバック用画像置き場。無くてもよい(単色になる)
+IMAGES_DIR = PROJECT_DIR / "images"
+IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 # three.js / three-vrm は web/libs に同梱している(AIassistant は参照しない)
 
 GENERATING = "GENERATING"
@@ -101,6 +106,9 @@ class ProgramService:
         self.conn = connect_db(resolve_path(settings["paths"]["db"]))
         self.log_path = resolve_path(settings["paths"]["log"])
         self.cache_dir = resolve_path(settings["paths"]["intro_cache"])
+        self.artwork_dir = resolve_path(
+            settings["paths"].get("artwork_cache", "cache/artwork")
+        )
 
         prog = settings["program"]
         self.selector = TrackSelector(self.conn, prog["exclude_history"])
@@ -166,6 +174,9 @@ class ProgramService:
                     "title": row["title"],
                     "artist": row["artist"],
                     "filepath": self.current,
+                    # 再接続時も同じ背景に戻す(アートワークがあれば同一、
+                    # images/ からのランダム選択は選び直しになる)
+                    "background": self.background_url(self.current),
                 },
             )
         if self.next_track:
@@ -202,6 +213,27 @@ class ProgramService:
         append_intro_log(self.log_path, filepath, row["title"], text)
         self.recent = (self.recent + [text])[-self.settings["llm"]["recent_intros"] :]
         return voicevox_synth.synth_to_cache(text, track_hash(filepath), self.settings)
+
+    # ---- 背景 ------------------------------------------------------------
+
+    def background_url(self, filepath: str) -> str | None:
+        """表示系の背景に使う画像のURL。
+
+        優先順位は 曲のアートワーク → images/ からランダム → None(単色 #12121c)。
+        ブロッキングIOなので to_thread 経由で呼ぶこと。
+        """
+        art = artwork.ensure_cached(filepath, self.artwork_dir)
+        if art is not None:
+            return f"/artwork/{art.name}"
+
+        if IMAGES_DIR.is_dir():
+            candidates = [
+                p for p in IMAGES_DIR.iterdir()
+                if p.is_file() and p.suffix.lower() in IMAGE_SUFFIXES
+            ]
+            if candidates:
+                return f"/images/{random.choice(candidates).name}"
+        return None
 
     def emit_intro(self, filepath: str) -> None:
         """intro を Liquidsoap に流したので、表示系にリップシンク用データを送る。
@@ -271,12 +303,14 @@ class ProgramService:
         self.current = filepath
         self._loop_started = asyncio.get_running_loop().time()
 
+        background = await asyncio.to_thread(self.background_url, filepath)
         self.emit(
             {
                 "event": "now_playing",
                 "title": row["title"],
                 "artist": row["artist"],
                 "filepath": filepath,
+                "background": background,
             }
         )
         # 曲名を先に出してから字幕とリップシンクを流す(逆だと紹介より先に
@@ -469,6 +503,11 @@ class ProgramService:
             "/", lambda _: web.FileResponse(WEB_DIR / "index.html")
         )
         app.router.add_static("/vrm/", VRM_DIR)
+        self.artwork_dir.mkdir(parents=True, exist_ok=True)
+        app.router.add_static("/artwork/", self.artwork_dir)
+        # images/ は無くてもよい。その場合は背景が単色になる
+        if IMAGES_DIR.is_dir():
+            app.router.add_static("/images/", IMAGES_DIR)
         # /libs/... は web/libs/... に解決される
         app.router.add_static("/", WEB_DIR)
         return app

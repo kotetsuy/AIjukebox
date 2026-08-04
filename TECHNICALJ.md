@@ -378,7 +378,8 @@ HTTP と WebSocket を同じポート(8765)で出す。aiohttp が両方を扱�
 表示系 → service:  {"cmd": "next" | "prev" | "pause" | "play"}
 
 service → 表示系:
-  {"event": "now_playing", "title":…, "artist":…, "filepath":…}
+  {"event": "now_playing", "title":…, "artist":…, "filepath":…,
+                           "background": "/artwork/….jpg" | "/images/….jpg" | null}
   {"event": "next_up",     "title":…, "artist":…}
   {"event": "state",       "phase": "GENERATING" | "NEXT_READY"}
   {"event": "paused",      "value": true|false}
@@ -394,7 +395,28 @@ service → 表示系:
   前の曲名が出たままになる
 - viseme 配列は数百要素あるので、コンソールには件数だけ出して WS には全部送る
 
-### 7.3 AIassistant を参照しない
+### 7.3 背景は WebGL ではなく DOM 側で持つ
+
+`scene.background` にテクスチャを入れると、アスペクト比の違う画像を
+cover 相当で収めるのに `repeat` / `offset` の計算が要る。
+**canvas を `alpha: true` のまま透過させ、その後ろに `#bg` を敷いて
+CSS の `background-size: cover` に任せる**方が確実で短い。
+
+背景の決定はサーバ側で行い、`now_playing` に URL を載せる。
+
+1. 曲に埋め込まれたアートワーク → `/artwork/{hash}.jpg`
+2. 無ければ `images/` からランダム → `/images/xxx.jpg`
+3. `images/` も無ければ `null` → 単色 `#12121c`
+
+アートワークは 300〜500px 角のものが多く、全画面に伸ばすと粗が出る。
+`img.naturalWidth` を見て**低解像度なら強めに(7px)、大きい画像なら軽く(2px)**
+ぼかす。ぼかしは粗を隠すと同時に、手前の文字を読みやすくする効果もある。
+`transform: scale(1.06)` はぼかしで画面の縁が透けるのを防ぐため。
+
+画像は読み込み完了を待ってから差し替える。先に URL を入れると
+切り替えの瞬間に地の色が一瞬見える。
+
+### 7.4 AIassistant を参照しない
 
 three.js / three-vrm は `web/libs/` にコピーして同梱している。
 既存の AIassistant プロジェクトのパスを参照すると、片方の変更でもう片方が壊れる。
