@@ -385,6 +385,7 @@ service → 表示系:
   {"event": "paused",      "value": true|false}
   {"event": "intro",       "text":…, "visemes":[…], "vtimes":[…],
                            "vdurations":[…], "delay_ms":300}
+  {"event": "credit",      "text": "VOICEVOX:波音リツ"}
   {"event": "restart",     "elapsed": 7.5}
   {"event": "error",       "detail": …}
 ```

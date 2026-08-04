@@ -161,9 +161,12 @@ class ProgramService:
         途中から繋いだブラウザでも曲名表示とNEXTボタンの活性が正しくなるように、
         now_playing / state / paused を作り直して送る。
         """
+        vv = self.settings["voicevox"]
         events: list[dict] = [
             {"event": "state", "phase": self.phase},
             {"event": "paused", "value": self.paused},
+            # VOICEVOX の利用規約で求められるクレジット表示
+            {"event": "credit", "text": f"VOICEVOX:{vv['speaker_name']}"},
         ]
         if self.current:
             row = self.selector.row(self.current)
