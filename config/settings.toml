@@ -45,6 +45,11 @@ recent_intros = 3
 base_url = "http://localhost:50021"
 speaker_name = "波音リツ"
 style_name = "ノーマル"
+# audio_query の volumeScale。VOICEVOX 既定の 1.0 は音楽に対して小さすぎる
+# (実測でピーク 0.34FS / RMS -22.6dBFS)。2.2 で +7dB、ピーク 0.74FS 前後。
+# ピークは発話で振れ、2.5 では長いコメントが天井に当たる。3.0 は明確にクリップ。
+# 変えたら cache/intros/*.wav は古い音量のままなので作り直す。
+volume_scale = 2.2
 
 [liquidsoap]
 telnet_host = "127.0.0.1"

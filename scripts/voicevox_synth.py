@@ -59,11 +59,17 @@ def resolve_speaker_id(base_url: str, speaker_name: str, style_name: str) -> int
     )
 
 
-def synthesize(text: str, speaker_id: int, base_url: str) -> tuple[bytes, dict]:
+def synthesize(
+    text: str, speaker_id: int, base_url: str, volume_scale: float = 1.0
+) -> tuple[bytes, dict]:
     """テキストを合成して (wavバイト列, audio_query) を返す。
 
     audio_query も返すのは、表示系のリップシンクが accent_phrases から
     viseme を組み立てるため。キャッシュヒット時に再問い合わせしなくて済む。
+
+    volume_scale は audio_query の volumeScale をそのまま差し替える。
+    Liquidsoap 側のダッキング (radio.liq の p) ではなくここで上げるのは、
+    音楽を下げるとリスナー側の体感音量ごと下がるため。
     """
     with httpx.Client(timeout=TIMEOUT) as client:
         r = client.post(
@@ -71,6 +77,7 @@ def synthesize(text: str, speaker_id: int, base_url: str) -> tuple[bytes, dict]:
         )
         r.raise_for_status()
         query = r.json()
+        query["volumeScale"] = volume_scale
 
         r = client.post(
             f"{base_url}/synthesis",
@@ -101,7 +108,9 @@ def synth_to_cache(text: str, track_hash: str, settings: dict | None = None) -> 
     speaker_id = resolve_speaker_id(
         vv["base_url"], vv["speaker_name"], vv["style_name"]
     )
-    wav, query = synthesize(text, speaker_id, vv["base_url"])
+    wav, query = synthesize(
+        text, speaker_id, vv["base_url"], vv.get("volume_scale", 1.0)
+    )
 
     # 生成途中で落ちても壊れたwavが残らないよう、書き切ってから差し替える
     tmp = wav_path.with_suffix(".wav.tmp")
@@ -148,7 +157,9 @@ def main() -> int:
             vv["base_url"], vv["speaker_name"], vv["style_name"]
         )
         print(f"話者: {vv['speaker_name']} / {vv['style_name']} → id={speaker_id}")
-        wav, _ = synthesize(text, speaker_id, vv["base_url"])
+        wav, _ = synthesize(
+            text, speaker_id, vv["base_url"], vv.get("volume_scale", 1.0)
+        )
 
         out = Path(args.out) if args.out else Path("intro.wav")
         out.write_bytes(wav)

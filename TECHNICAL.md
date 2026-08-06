@@ -231,6 +231,32 @@ PREV) would leave the avatar's mouth still.
 fixed once generated**. That is the price of PREV always being instant. Delete
 the cache files to get a different one.
 
+### 4.3 Loudness is applied at synthesis time
+
+VOICEVOX's default level is quiet next to music (measured peak 0.34FS, RMS
+-22.6dBFS). `[voicevox] volume_scale` is passed straight into the
+`audio_query`'s `volumeScale`.
+
+| volumeScale | peak | RMS |
+|---|---|---|
+| 1.0 | 0.34FS | -22.6dBFS |
+| 2.0 | 0.68FS | -16.6dBFS |
+| 2.2 (in use) | 0.74FS | -15.8dBFS |
+| 2.5 | 0.84FS | -14.7dBFS |
+| 3.0 | 1.00FS | -13.1dBFS (clips) |
+
+**Peaks vary by about 1.4× between utterances.** The table is for one reference
+line; measured intros peak anywhere from 0.34FS to 0.47FS before scaling. Sized
+for the loudest of them the ceiling would be 2.0, and at 2.2 such an utterance
+touches full scale for a few samples (0.125 ms at most) — too short to be
+audible, so it is accepted.
+
+Lowering the ducking `p` would make the voice relatively louder too, but that
+just drags the whole mix down, so the voice itself is raised instead.
+
+**Cached wavs keep the old level**, so regenerate them after a change. The text
+lives in the `.json`, so re-synthesis does not need Qwen.
+
 ---
 
 ## 5. Mixing and streaming
