@@ -396,3 +396,17 @@ llama-server か VOICEVOX が落ちている。表示系のログ(tmux の progr
 - 3D描画: [three.js](https://threejs.org/) と
   [@pixiv/three-vrm](https://github.com/pixiv/three-vrm)(MIT、`web/libs/` に同梱)
 - 曲情報: [MusicBrainz](https://musicbrainz.org/)
+
+## ライセンス
+
+[Apache License 2.0](LICENSE)。Copyright 2026 Kotetsu Yamamoto。
+
+`web/libs/` に同梱している three.js と @pixiv/three-vrm は、それぞれの
+MIT ライセンスのまま無改変で再配布しているもので、**上記 Apache ライセンスの
+対象外**。全一覧と、実行時に使うサービスの利用条件は [NOTICE](NOTICE) にある。
+とくに **VOICEVOX は合成音声を公開する際に話者のクレジット表示が必要**で、
+これは `web/` の表示系が行っている。
+
+音楽ライブラリの音源・アートワーク・メタデータはこのリポジトリに含まれない。
+`library/` に置いたものの権利は各権利者にあり、自宅 LAN の外へ配信する場合は
+別途許諾が要ることがある。

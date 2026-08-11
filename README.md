@@ -408,3 +408,18 @@ Old ID3 tags that store Japanese as CP932 are repaired automatically by
 - 3D rendering: [three.js](https://threejs.org/) and
   [@pixiv/three-vrm](https://github.com/pixiv/three-vrm) (MIT, vendored under `web/libs/`)
 - Metadata: [MusicBrainz](https://musicbrainz.org/)
+
+## License
+
+[Apache License 2.0](LICENSE). Copyright 2026 Kotetsu Yamamoto.
+
+The libraries vendored under `web/libs/` (three.js and @pixiv/three-vrm) are
+redistributed unmodified under their own MIT licenses and are **not** covered by
+the Apache license above. [NOTICE](NOTICE) lists them in full, along with the
+terms attached to the services used at runtime — in particular **VOICEVOX
+requires the speaker to be credited whenever synthesized audio is published**,
+which the display in `web/` does for you.
+
+This repository contains no audio, artwork or metadata from any music library.
+What you put in `library/` stays yours (or its owner's) — broadcasting it beyond
+your own network may require a license.

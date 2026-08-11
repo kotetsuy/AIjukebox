@@ -1,0 +1,62 @@
+AIjukebox
+Copyright 2026 Kotetsu Yamamoto
+
+This product includes software developed as part of the AIjukebox project,
+licensed under the Apache License, Version 2.0 (see LICENSE).
+
+--------------------------------------------------------------------------
+Third-party components bundled in this repository
+--------------------------------------------------------------------------
+
+The following files under web/libs/ are third-party libraries redistributed
+unmodified. They are NOT covered by the Apache License above; each remains
+under its own license.
+
+1. three.js (r180) — MIT License
+   Copyright 2010-2025 Three.js Authors
+   https://github.com/mrdoob/three.js
+
+     web/libs/three/three.module.js
+     web/libs/three/three.core.js
+     web/libs/three/addons/loaders/GLTFLoader.js
+     web/libs/three/addons/utils/BufferGeometryUtils.js
+
+2. @pixiv/three-vrm — MIT License
+   Copyright (c) 2019-2026 pixiv Inc.
+   https://github.com/pixiv/three-vrm
+
+     web/libs/three-vrm/three-vrm.module.min.js
+
+Python dependencies (mutagen, musicbrainzngs, httpx, aiohttp) are installed
+from PyPI at setup time and are not redistributed here.
+
+--------------------------------------------------------------------------
+External services and models used at runtime (not redistributed here)
+--------------------------------------------------------------------------
+
+These are neither included in nor distributed with this repository. Each
+carries its own terms, which the operator is responsible for observing.
+
+- VOICEVOX ENGINE and its voice characters.
+  The default DJ voice is 波音リツ. VOICEVOX requires that the speaker be
+  credited whenever synthesized audio is published; the display in web/
+  shows this credit, and anyone broadcasting with a different speaker must
+  keep the corresponding credit visible.
+  https://voicevox.hiroshiba.jp/
+
+- Qwen3.6 (served via llama.cpp) for the DJ commentary.
+
+- MusicBrainz, queried by scripts/enrich_mb.py to fill in track metadata.
+  Its data is licensed by the MetaBrainz Foundation; observe their terms and
+  rate limits when using it.
+  https://musicbrainz.org/doc/About/Data_License
+
+--------------------------------------------------------------------------
+Your music library
+--------------------------------------------------------------------------
+
+This repository contains no audio, artwork or metadata from any music
+library. `library/` holds only a .gitkeep placeholder; the files you put
+there, the artwork extracted from them into the cache, and the commentary
+generated about them remain subject to the rights of their respective
+owners. Broadcasting them beyond your own network may require a license.
