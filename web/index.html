@@ -45,6 +45,17 @@
     user-select: none;
   }
 
+  /* 同じ LAN のスマホで開いてもらうための配信 URL。#credit と同じ体裁で
+     反対側に置く。URL は選択してコピーできるよう user-select は外さない。 */
+  #streamurl {
+    position: fixed; bottom: 12px; right: 14px; z-index: 10;
+    font-size: 12px; color: #b4b4c8; letter-spacing: .02em;
+    text-shadow: 0 1px 6px rgba(0,0,0,.9), 0 0 3px rgba(0,0,0,.8);
+    text-align: right;
+  }
+  #streamurl .label { color: #8a8aa0; margin-right: .5em; }
+  #streamurl .url { font-variant-numeric: tabular-nums; }
+
   #nowplaying {
     position: fixed; top: 32px; left: 50%; transform: translateX(-50%);
     z-index: 10; text-align: center; max-width: 90vw;
@@ -92,6 +103,8 @@
 <div id="subtitle"></div>
 
 <div id="credit"></div>
+
+<div id="streamurl"></div>
 
 <div id="transport">
   <button id="prev"      title="前の曲 / 頭出し">⏮</button>
@@ -333,6 +346,22 @@
         case "credit":
           $("credit").textContent = msg.text || "";
           break;
+
+        case "stream_url": {
+          // textContent で組み立てる(URL は設定由来だが HTML として解釈させない)
+          const el = $("streamurl");
+          el.textContent = "";
+          if (msg.url) {
+            const label = document.createElement("span");
+            label.className = "label";
+            label.textContent = "ネットラジオ";
+            const url = document.createElement("span");
+            url.className = "url";
+            url.textContent = msg.url;
+            el.append(label, url);
+          }
+          break;
+        }
 
         case "error":
           console.warn("service error:", msg);

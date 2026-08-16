@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import socket
 import sqlite3
 import tomllib
 import unicodedata
@@ -69,6 +70,37 @@ def resolve_path(value: str) -> Path:
     """設定中のパスを解決する。相対パスはプロジェクトルート基準。"""
     p = Path(value).expanduser()
     return p if p.is_absolute() else (PROJECT_ROOT / p)
+
+
+def lan_ip() -> str | None:
+    """このマシンの LAN 側 IP を返す。取れなければ None。
+
+    start_all.sh の `ip route get 1.1.1.1` と同じ考え方を Python で行う。
+    外向きのソケットを「繋げずに」作るだけなので、通信は発生せず、
+    デフォルトルートに使われるインターフェースのアドレスが得られる。
+    1.1.1.1 に到達できる必要はない。
+    """
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("1.1.1.1", 80))
+        return s.getsockname()[0]
+    except OSError:
+        return None
+    finally:
+        s.close()
+
+
+def stream_url(settings: dict[str, Any]) -> str:
+    """Icecast の配信 URL を組み立てる。
+
+    ホストは LAN IP を優先する。表示の目的が「同じ LAN のスマホで開く」ことなので、
+    設定の host (既定 localhost) をそのまま出すと役に立たないため。
+    icecast.xml は 0.0.0.0 で待ち受けているので LAN IP で到達できる。
+    IP が取れないときだけ設定の host に落とす。
+    """
+    ice = settings["icecast"]
+    host = lan_ip() or ice.get("host", "localhost")
+    return f"http://{host}:{ice['port']}/{ice['mount']}"
 
 
 def connect_db(db_path: Path) -> sqlite3.Connection:
