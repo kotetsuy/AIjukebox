@@ -3,7 +3,7 @@
 #
 # 起動順 (前のものが上がってから次に進む):
 #   1. VOICEVOX ENGINE (docker)   :50021
-#   2. llama-server (Qwen3.6)     :8080
+#   2. llama-server (Qwen3.6)     :9931
 #   3. Icecast                    :8100   ← config/icecast.xml (sudo不要)
 #   4. Liquidsoap                 :1234 (telnet) → Icecast へ配信
 #   5. program_service            :8765   ← 表示系 + WebSocket
@@ -21,10 +21,10 @@ cd "$(dirname "$(readlink -f "$0")")"
 
 SESSION="aijukebox"
 
-LLAMA_BIN="$HOME/llama.cpp/build/bin/llama-server"
+LLAMA_BIN="${LLAMA_BIN:-$HOME/llama.cpp/build/bin/llama-server}"
 QWEN_MODEL="$HOME/AIassistant/qwen3.6/Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf"
 LLAMA_HOST="127.0.0.1"
-LLAMA_PORT="8080"
+LLAMA_PORT="9931"
 LLAMA_CTX="8192"
 LLAMA_NGL="99"
 
@@ -35,15 +35,6 @@ VOICEVOX_IMAGE="voicevox/voicevox_engine:cpu-ubuntu20.04-latest"
 # Liquidsoap の output.pulseaudio もここを使う。
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 export PULSE_SERVER="${PULSE_SERVER:-unix:${XDG_RUNTIME_DIR}/pulse/native}"
-
-# gfx1151 (Ryzen AI Max+ 395) 向け ROCm env。
-# HSA_OVERRIDE_GFX_VERSION は設定しない。llama.cpp は gfx1151 ネイティブ
-# ビルドなので override すると壊れる。
-unset HSA_OVERRIDE_GFX_VERSION
-export ROCM_PATH="${ROCM_PATH:-/opt/rocm}"
-export HIP_VISIBLE_DEVICES="${HIP_VISIBLE_DEVICES:-0}"
-export AMDGPU_TARGETS="${AMDGPU_TARGETS:-gfx1151}"
-export LD_LIBRARY_PATH="/usr/local/lib:/opt/rocm/lib:/opt/rocm/lib/llvm/lib:${LD_LIBRARY_PATH:-}"
 
 # ---- helpers ------------------------------------------------------------
 
@@ -155,11 +146,13 @@ wait_http "VOICEVOX" "http://localhost:50021/version" 60
 
 # ---- 2. llama-server ----------------------------------------------------
 
-new_window "llama" "ROCM_PATH=${ROCM_PATH} \
-HIP_VISIBLE_DEVICES=${HIP_VISIBLE_DEVICES} \
-LD_LIBRARY_PATH=${LD_LIBRARY_PATH} \
-${LLAMA_BIN} -m ${QWEN_MODEL} --host ${LLAMA_HOST} --port ${LLAMA_PORT} \
--ngl ${LLAMA_NGL} -c ${LLAMA_CTX} -fit off"
+# tmux サーバーに残る環境に依存せず、選択した ROCm を子プロセスへ渡す。
+printf -v llama_command '%q ' env "ROCM_PATH=${ROCM_PATH:-/opt/rocm}" \
+    "HIP_VISIBLE_DEVICES=${HIP_VISIBLE_DEVICES:-0}" "LLAMA_BIN=$LLAMA_BIN" \
+    bash "$PWD/scripts/run_llama.sh" -m "$QWEN_MODEL" \
+    --host "$LLAMA_HOST" --port "$LLAMA_PORT" \
+    -ngl "$LLAMA_NGL" -c "$LLAMA_CTX" -fit off
+new_window "llama" "$llama_command"
 
 # モデルロードに時間がかかるのでタイムアウト長め
 wait_http "llama-server" "http://${LLAMA_HOST}:${LLAMA_PORT}/health" 600

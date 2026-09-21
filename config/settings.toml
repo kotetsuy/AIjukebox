@@ -30,7 +30,7 @@ min_score = 90
 # --- 以下は Phase 2 以降で使用 ---
 
 [llm]
-base_url = "http://localhost:8080"
+base_url = "http://localhost:9931"
 model = "qwen3.6"
 # 100文字のコメントでも日本語は150トークンに収まらず文が途中で切れるため 256。
 # 長さは max_chars 側のトリムで担保する。

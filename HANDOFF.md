@@ -306,12 +306,12 @@ cd ~/AIjukebox
 # 1. VOICEVOX ENGINE (docker)                      :50021
 docker start voicevox_engine
 
-# 2. llama-server (Qwen3.6-35B-A3B, Thinking無効)  :8080
+# 2. llama-server (Qwen3.6-35B-A3B, Thinking無効)  :9931
 ROCM_PATH=/opt/rocm HIP_VISIBLE_DEVICES=0 \
 LD_LIBRARY_PATH=/usr/local/lib:/opt/rocm/lib:/opt/rocm/lib/llvm/lib \
 ~/llama.cpp/build/bin/llama-server \
   -m ~/AIassistant/qwen3.6/Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf \
-  --host 127.0.0.1 --port 8080 -ngl 99 -c 8192 -fit off &
+  --host 127.0.0.1 --port 9931 -ngl 99 -c 8192 -fit off &
 
 # 3. Icecast (sudo不要・プロジェクト内設定)        :8100
 icecast2 -c config/icecast.xml &

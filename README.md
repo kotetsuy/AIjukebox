@@ -46,7 +46,7 @@ What this was developed and verified on.
 |---|---|
 | OS | Ubuntu 26.04 (resolute) |
 | GPU | AMD Ryzen AI Max+ 395 / Radeon 8060S (gfx1151, 48GB VRAM) |
-| ROCm | 7.14.0 (`/opt/rocm`) |
+| ROCm | 10.0.0 (`/opt/rocm`) |
 | Python | 3.12 (managed by uv) |
 | Liquidsoap | 2.4.0 |
 | Icecast | 2.5.0 |
@@ -91,6 +91,27 @@ model is `Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf` (~22GB).
 
 > **Important:** do not set `HSA_OVERRIDE_GFX_VERSION`. The build is native
 > gfx1151, and overriding the arch breaks it.
+
+After upgrading to ROCm 10, rebuild llama.cpp against the same SDK.
+Example using a separate build directory (source in `~/llama.cpp`):
+
+```bash
+cmake -S "$HOME/llama.cpp" -B "$HOME/llama.cpp/build-rocm10" \
+  -DGGML_HIP=ON -DAMDGPU_TARGETS=gfx1151 \
+  -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/opt/rocm \
+  -DCMAKE_HIP_COMPILER=/opt/rocm/lib/llvm/bin/clang++
+cmake --build "$HOME/llama.cpp/build-rocm10" --target llama-server -j 8
+LLAMA_BIN="$HOME/llama.cpp/build-rocm10/bin/llama-server" \
+  bash scripts/run_llama.sh --list-devices
+LLAMA_BIN="$HOME/llama.cpp/build-rocm10/bin/llama-server" ./start_all.sh
+```
+
+The default binary remains `~/llama.cpp/build/bin/llama-server`.
+`scripts/run_llama.sh` sets the ROCm 10 library paths from `ROCM_PATH`
+(default `/opt/rocm`) and clears `HSA_OVERRIDE_GFX_VERSION`.
+For another SDK, set `ROCM_PATH=/path/to/rocm` and adjust both
+`CMAKE_PREFIX_PATH` and `CMAKE_HIP_COMPILER` to that same SDK when building.
+To check GPU detection only, run `bash scripts/run_llama.sh --list-devices`.
 
 ### 2.5 A VRM model
 
@@ -200,7 +221,7 @@ service to respond before moving to the next.
 | # | Service | Port |
 |---|---|---|
 | 1 | VOICEVOX ENGINE (docker) | 50021 |
-| 2 | llama-server (Qwen3.6) | 8080 |
+| 2 | llama-server (Qwen3.6) | 9931 |
 | 3 | Icecast | 8100 |
 | 4 | Liquidsoap (telnet control) | 1234 |
 | 5 | program_service (show runner + display) | 8765 |
