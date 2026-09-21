@@ -40,7 +40,9 @@ server.register(
 # ---- ダッキング ----------------------------------------------------------
 # intro が入ると音楽を p 倍まで下げ、intro が終わったら戻す。
 # fallback(track_sensitive=false) は使わない。曲を途中でぶった切るため。
-radio = smooth_add(normal=music_queue, special=dj_queue, duration=1.5, p=0.15)
+# 通常時の音楽は原音の90% (約 -0.92 dB)。DJ音声の音量はそのまま。
+music = amplify(override=null, 0.9, music_queue)
+radio = smooth_add(normal=music, special=dj_queue, duration=1.5, p=0.15)
 
 # ---- PAUSE ---------------------------------------------------------------
 # Liquidsoap 2.4 の output には .stop / .start / .status が無い(1.x にはあった)。
