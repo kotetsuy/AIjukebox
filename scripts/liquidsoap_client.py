@@ -86,6 +86,10 @@ class LiquidsoapClient:
     def skip(self) -> str:
         return self.command(f"{self.conf.get('music_queue', 'music')}.skip")
 
+    def cancel_intro(self) -> str:
+        """読み上げ中のDJ音声と、待機中の紹介をすべて取り消す。"""
+        return self.command(f"{self.conf.get('dj_queue', 'dj_intro')}.reset")
+
     def wait_ready(self, *, with_intro: bool, timeout: float = 30.0) -> None:
         """投入したファイルがデコード可能になるまで待つ。失敗時は再生しない。"""
         queues = [self.conf.get("music_queue", "music")]

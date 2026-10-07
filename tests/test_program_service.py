@@ -86,11 +86,69 @@ class PreparationTests(unittest.IsolatedAsyncioTestCase):
         service.client.play.assert_not_called()
         service.client.push_music.assert_not_called()
 
+    async def test_next_cancels_old_intro_before_starting_new_one(self):
+        service = self.service()
+        service.build_intro = Mock(return_value=Path("next.wav"))
+        await service._prepare_next()
+        service.emit.reset_mock()
+        self.assertEqual(await service.cmd_next(), "next")
+        self.assertEqual(service.client.mock_calls, [
+            call.cancel_intro(), call.push_music("next.mp3"), call.skip(),
+            call.push_intro(Path("next.wav")),
+        ])
+        self.assertEqual(service.emit.call_args_list[0],
+                         call({"event": "intro_cancelled"}))
+        service.emit_intro.assert_called_once_with("next.mp3")
+        await service._prepare_task
 
+    async def test_disabled_next_does_not_cancel_intro(self):
+        service = self.service()
+        await service.cmd_next()
+        service.client.cancel_intro.assert_not_called()
 
+    async def test_prev_restart_cancels_intro_without_replaying_it(self):
+        service = self.service()
+        service.prev_threshold = 3
+        service.elapsed = AsyncMock(return_value=10)
+        await service.cmd_prev()
+        self.assertEqual(service.client.mock_calls, [
+            call.cancel_intro(), call.push_music("current.mp3"), call.skip(),
+        ])
+        self.assertEqual(service.emit.call_args_list[0],
+                         call({"event": "intro_cancelled"}))
+        service.emit_intro.assert_not_called()
 
+    async def test_prev_cancels_intro_before_loading_previous_intro(self):
+        service = self.service()
+        service.prev_threshold = 3
+        service.elapsed = AsyncMock(return_value=1)
+        service.selector.play_stack = ["previous.mp3"]
+        intro = Mock()
+        meta = Mock()
+        service._intro_paths = Mock(return_value=(intro, meta))
+        service.build_intro = Mock(return_value=Path("next.wav"))
+        self.assertEqual(await service.cmd_prev(), "prev")
+        self.assertEqual(service.client.mock_calls, [
+            call.cancel_intro(), call.push_music("previous.mp3"), call.skip(),
+            call.push_intro(intro),
+        ])
+        self.assertEqual(service.emit.call_args_list[0],
+                         call({"event": "intro_cancelled"}))
+        await service._prepare_task
 
+    async def test_prev_without_history_still_cancels_intro(self):
+        service = self.service()
+        service.prev_threshold = 3
+        service.elapsed = AsyncMock(return_value=1)
+        self.assertEqual(await service.cmd_prev(), "これ以上戻れません")
+        self.assertEqual(service.client.mock_calls, [call.cancel_intro()])
+        service.emit.assert_called_once_with({"event": "intro_cancelled"})
 
+    def test_cancel_intro_flushes_only_configured_dj_queue(self):
+        client = LiquidsoapClient("localhost", 1234, {"dj_queue": "custom_dj"})
+        client.command = Mock(return_value="OK")
+        self.assertEqual(client.cancel_intro(), "OK")
+        client.command.assert_called_once_with("custom_dj.reset")
 
     def test_ready_waits_for_both_sources(self):
         client = LiquidsoapClient("localhost", 1234)

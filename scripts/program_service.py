@@ -354,12 +354,19 @@ class ProgramService:
 
     # ---- コマンド --------------------------------------------------------
 
+    async def cancel_intro(self) -> None:
+        """DJ音声と表示側の字幕・リップシンクを一緒に取り消す。"""
+        await asyncio.to_thread(self.client.cancel_intro)
+        self.emit({"event": "intro_cancelled"})
+
     async def cmd_next(self) -> str:
         # 判定はロックの中で行う。外に出すと、先行する NEXT が _advance の
         # 途中(まだ GENERATING を落とす前)のときに連打がすり抜ける。
         async with self._advancing:
             if self.phase != NEXT_READY or self.next_track is None:
                 return "生成中です(NEXTは無効)"
+            # 前の曲の紹介を残したまま、次の紹介をキューに積まない。
+            await self.cancel_intro()
             await self._advance(
                 self.next_track, self.next_intro, skip_current=True, push_stack=True
             )
@@ -394,6 +401,9 @@ class ProgramService:
             self._loop_started = asyncio.get_running_loop().time()
 
     async def cmd_prev(self) -> str:
+        # 頭出し・前曲への移動・履歴なしのいずれでも、押下時の紹介を止める。
+        async with self._advancing:
+            await self.cancel_intro()
         elapsed = await self.elapsed()
 
         # 3秒ルール: 再生位置が3秒以降なら現在曲を頭出しする

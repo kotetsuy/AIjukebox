@@ -340,6 +340,12 @@
           $("playpause").textContent = paused ? "▶" : "⏸";
           break;
 
+        case "intro_cancelled":
+          visemeSchedule = [];
+          applyViseme("sil");
+          showSubtitle("");
+          break;
+
         case "intro":
           scheduleVisemes(msg);
           showSubtitle(msg.text || "");
