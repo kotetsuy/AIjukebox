@@ -22,6 +22,24 @@ settings.server.telnet.port.set(1234)
 music_queue = request.queue(id="music")
 dj_queue = request.queue(id="dj_intro")
 
+# 空のソースへのskipは次に投入した曲へ持ち越されるため避ける。
+def reset_queue(q) =
+  playing = q.current() != null
+  q.set_queue([])
+  if playing then q.skip() end
+  "Done."
+end
+server.register(namespace="music", description="キューの初期化", "reset",
+  fun (_) -> reset_queue(music_queue))
+server.register(namespace="dj_intro", description="キューの初期化", "reset",
+  fun (_) -> reset_queue(dj_queue))
+
+# pushの応答は読み込み完了を意味しない。起動時の再生開始判定に使う。
+server.register(namespace="music", description="音楽の読み込み完了", "ready",
+  fun (_) -> "#{music_queue.is_ready()}")
+server.register(namespace="dj_intro", description="紹介音声の読み込み完了", "ready",
+  fun (_) -> "#{dj_queue.is_ready()}")
+
 # ---- 音楽キューの位置取得 ------------------------------------------------
 # 出力側の radio_local.remaining は「いま出力しているトラック」の残りを返すため、
 # intro でダッキング中は intro の残り時間になってしまい、曲の終端検出に使えない。
@@ -57,7 +75,8 @@ radio = smooth_add(normal=music, special=dj_queue, duration=1.5, p=0.15)
 # スマホ側のリスナーが切断されない(HANDOFF が許容していた制約が解消)。
 #
 #   telnet: var.set paused = true / var.set paused = false
-paused = interactive.bool("paused", false)
+# 初回の曲と紹介を投入し終えるまで音を出さない。program_serviceが解除する。
+paused = interactive.bool("paused", true)
 
 stream = switch(track_sensitive=false, [(paused, blank()), ({true}, radio)])
 

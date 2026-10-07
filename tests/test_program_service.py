@@ -54,6 +54,37 @@ class PreparationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(service.phase, NEXT_READY)
         self.assertEqual(service.next_intro, Path("next.wav"))
 
+    def test_unresolved_startup_is_not_track_end(self):
+        service = self.service()
+        for remaining in [-1, -1, 0, -1, 180, 179]:
+            self.assertFalse(service.track_ended(remaining))
+        self.assertTrue(service.track_ended(0.5))
+        self.assertTrue(service.track_ended(-1))
+
+    async def test_start_prepares_music_and_intro_before_playing(self):
+        service = self.service()
+        service.current = None
+        service.build_intro = Mock(return_value=Path("first.wav"))
+        await service.start()
+        self.assertEqual(service.client.mock_calls, [
+            call.pause(), call.flush_queues(), call.push_music("next.mp3"),
+            call.push_intro(Path("first.wav")), call.wait_ready(with_intro=True),
+            call.play(),
+        ])
+        self.assertFalse(service.paused)
+        events = [args.args[0]["event"] for args in service.emit.call_args_list]
+        self.assertLess(events.index("now_playing"), len(events) - 1)
+        service.emit_intro.assert_called_once_with("next.mp3")
+        await service._prepare_task
+
+    async def test_start_failure_does_not_start_partial_playback(self):
+        service = self.service()
+        service.build_intro = Mock(side_effect=OSError("cache write"))
+        with self.assertRaises(OSError):
+            await service.start()
+        self.assertTrue(service.paused)
+        service.client.play.assert_not_called()
+        service.client.push_music.assert_not_called()
 
 
 
@@ -61,9 +92,25 @@ class PreparationTests(unittest.IsolatedAsyncioTestCase):
 
 
 
+    def test_ready_waits_for_both_sources(self):
+        client = LiquidsoapClient("localhost", 1234)
+        client.command = Mock(side_effect=["false", "true", "false", "true", "true"])
+        with patch("liquidsoap_client.time.sleep"):
+            client.wait_ready(with_intro=True)
+        self.assertEqual(client.command.call_args_list, [
+            call("music.ready"), call("music.ready"), call("dj_intro.ready"),
+            call("music.ready"), call("dj_intro.ready"),
+        ])
 
-
-
+    async def test_readiness_failure_keeps_startup_paused(self):
+        service = self.service()
+        service.current = None
+        service.build_intro = Mock(return_value=Path("first.wav"))
+        service.client.wait_ready.side_effect = LiquidsoapError("not ready")
+        with self.assertRaises(LiquidsoapError):
+            await service.start()
+        service.client.play.assert_not_called()
+        service.emit_intro.assert_not_called()
 
     async def test_previous_track_cancels_stale_preparation(self):
         service = self.service()

@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import socket
 import sys
+import time
 from pathlib import Path
 
 from common import load_settings, resolve_path
@@ -85,6 +86,19 @@ class LiquidsoapClient:
     def skip(self) -> str:
         return self.command(f"{self.conf.get('music_queue', 'music')}.skip")
 
+    def wait_ready(self, *, with_intro: bool, timeout: float = 30.0) -> None:
+        """投入したファイルがデコード可能になるまで待つ。失敗時は再生しない。"""
+        queues = [self.conf.get("music_queue", "music")]
+        if with_intro:
+            queues.append(self.conf.get("dj_queue", "dj_intro"))
+        deadline = time.monotonic() + timeout
+        while True:
+            if all(self.command(f"{q}.ready").lower() == "true" for q in queues):
+                return
+            if time.monotonic() >= deadline:
+                raise LiquidsoapError("曲・DJ音声の読み込みが完了しませんでした")
+            time.sleep(0.1)
+
     def flush_queues(self) -> list[str]:
         """両キューを空にして再生中のトラックも止める。
 
@@ -93,7 +107,7 @@ class LiquidsoapClient:
         空にならず、終端検出(自動送り)が永久に発火しない。起動時に必ず呼ぶこと。
         """
         return [
-            self.command(f"{q}.flush_and_skip")
+            self.command(f"{q}.reset")
             for q in (
                 self.conf.get("music_queue", "music"),
                 self.conf.get("dj_queue", "dj_intro"),

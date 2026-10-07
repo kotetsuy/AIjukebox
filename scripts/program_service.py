@@ -127,6 +127,7 @@ class ProgramService:
         )
 
         self._loop_started = 0.0
+        self._playback_seen = False
         self._prepare_task: asyncio.Task | None = None
         self._advancing = asyncio.Lock()
 
@@ -307,9 +308,14 @@ class ProgramService:
         if intro is not None:
             await asyncio.to_thread(self.client.push_intro, intro)
 
+        if not skip_current and self.current is None:
+            # 初回はpush完了だけでは不足。非同期のファイル読み込みも待つ。
+            await asyncio.to_thread(self.client.wait_ready, with_intro=intro is not None)
+
         if push_stack and self.current:
             self.selector.play_stack.append(self.current)
         self.current = filepath
+        self._playback_seen = False
         self._loop_started = asyncio.get_running_loop().time()
 
         background = await asyncio.to_thread(self.background_url, filepath)
@@ -384,6 +390,7 @@ class ProgramService:
         async with self._advancing:
             await asyncio.to_thread(self.client.push_music, self.current)
             await asyncio.to_thread(self.client.skip)
+            self._playback_seen = False
             self._loop_started = asyncio.get_running_loop().time()
 
     async def cmd_prev(self) -> str:
@@ -441,6 +448,8 @@ class ProgramService:
 
     async def start(self) -> None:
         """最初の1曲を用意して投入する。"""
+        # サービスだけ再起動した場合も、準備途中の音楽を先に鳴らさない。
+        await self.cmd_pause()
         # 前回実行時の押し込みがキューに残っていると、曲が終わってもキューが
         # 空にならず自動送りが発火しなくなるので、必ず掃除してから始める
         await asyncio.to_thread(self.client.flush_queues)
@@ -448,6 +457,17 @@ class ProgramService:
         self.emit({"event": "state", "phase": GENERATING})
         intro = await asyncio.to_thread(self.build_intro, self.selector.row(first))
         await self._advance(first, intro, skip_current=False, push_stack=False)
+        await self.cmd_play()
+        self._loop_started = asyncio.get_running_loop().time()
+
+    def track_ended(self, remaining: float) -> bool:
+        # -1は終了だけでなく、投入直後の未解決状態でも返る。
+        # 一度も再生位置を取得していない曲を自動で飛ばさない。
+        if remaining < 0:
+            return self._playback_seen
+        if remaining > 0:
+            self._playback_seen = True
+        return self._playback_seen and remaining <= END_THRESHOLD
 
     async def poll_loop(self) -> None:
         """曲の終端を監視して次曲を投入する。"""
@@ -467,7 +487,7 @@ class ProgramService:
                 await asyncio.sleep(2)
                 continue
 
-            ended = rem < 0 or rem <= END_THRESHOLD
+            ended = self.track_ended(rem)
             if not ended:
                 continue
             if self.phase != NEXT_READY or self.next_track is None:
