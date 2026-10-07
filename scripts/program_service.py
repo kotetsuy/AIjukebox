@@ -32,7 +32,6 @@ from collections import deque
 from pathlib import Path
 
 import aiohttp
-import httpx
 from aiohttp import web
 
 import artwork
@@ -282,7 +281,10 @@ class ProgramService:
                 {"event": "next_up", "title": row["title"], "artist": row["artist"]}
             )
             self.next_intro = await asyncio.to_thread(self.build_intro, row)
-        except (httpx.HTTPError, RuntimeError) as e:
+        except Exception as e:
+            # HTTP以外にも、応答JSONの不正・話者未検出・キャッシュ書込失敗が
+            # 起こり得る。バックグラウンドタスクの例外でGENERATINGに固着
+            # させない。CancelledErrorは捕捉せず、古い準備の取消を尊重する。
             # 生成に失敗しても番組は止めない。introなしで次に進めるようにする
             self.emit({"event": "error", "where": "prepare_next", "detail": str(e)})
             self.next_intro = None
@@ -328,6 +330,15 @@ class ProgramService:
         # 次曲情報はここで無効化し、GENERATING も「同期的に」落とす。
         # create_task の中で落とすと、タスクが走り出す前に届いた NEXT が
         # まだ NEXT_READY を見てしまい、連打がすり抜ける。
+        # PREVで生成途中に戻った場合、古い準備が後からNEXT_READYや
+        # next_introを上書きしないようにする。to_threadの処理自体は継続
+        # するが、キャンセルしたタスクから再生状態へ結果は反映されない。
+        if self._prepare_task is not None and not self._prepare_task.done():
+            self._prepare_task.cancel()
+            try:
+                await self._prepare_task
+            except asyncio.CancelledError:
+                pass
         self.next_track = None
         self.next_intro = None
         self._set_phase(GENERATING)

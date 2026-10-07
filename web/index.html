@@ -331,6 +331,8 @@
         case "state":
           // GENERATING の間だけ NEXT を無効化する(HANDOFF §3)
           $("next").disabled = msg.phase !== "NEXT_READY";
+          $("next").title = msg.phase === "NEXT_READY"
+            ? "次の曲" : "次の曲のDJ音声を準備中…";
           break;
 
         case "paused":
