@@ -656,7 +656,7 @@ Chrome で `http://localhost:8765/` を開いて確認:
 - **`config/settings.local.toml`**(git管理外)が `settings.toml` を再帰マージで
   上書きする。MusicBrainz の連絡先メールなど、リポジトリに入れたくない値はここへ。
   雛形は `config/settings.local.toml.example`。`settings.toml` 側は
-  `CHANGE_ME@example.com` のまま
+  `YOUR_CONTACT` のまま
 - **`library/`**(音楽ファイル本体・著作物)、**`cache/`**(生成音声)、
   **`logs/`**、**`vroid/*.vrm`**(16MBのバイナリ、配布条件はモデル次第)
 - **`db/`** — `library.db` は `filepath` を絶対パスで持つので環境間で共有できない。

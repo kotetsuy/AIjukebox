@@ -45,7 +45,7 @@ For English, see [README.md](README.md).
 |---|---|
 | OS | Ubuntu 26.04 (resolute) |
 | GPU | AMD Ryzen AI Max+ 395 / Radeon 8060S (gfx1151, 48GB VRAM) |
-| ROCm | 10.0.0 (`/opt/rocm`) |
+| ROCm | 10.2 (`/opt/rocm`) |
 | Python | 3.12 (uv 管理) |
 | Liquidsoap | 2.4.0 |
 | Icecast | 2.5.0 |
@@ -89,22 +89,22 @@ llama.cpp を gfx1151 向けにビルドし、`llama-server` を用意する。
 > **重要:** `HSA_OVERRIDE_GFX_VERSION` は設定しないこと。
 > gfx1151 ネイティブビルドなので、arch を上書きすると動かなくなる。
 
-ROCm 10 への更新後は、llama.cpp も同じ SDK で再ビルドしてください。
+ROCm 10.2 への更新後は、llama.cpp も同じ SDK で再ビルドしてください。
 既存ビルドと分ける場合の例（llama.cpp のソースが `~/llama.cpp` にある場合）:
 
 ```bash
-cmake -S "$HOME/llama.cpp" -B "$HOME/llama.cpp/build-rocm10" \
+cmake -S "$HOME/llama.cpp" -B "$HOME/llama.cpp/build-rocm10.2" \
   -DGGML_HIP=ON -DAMDGPU_TARGETS=gfx1151 \
   -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/opt/rocm \
   -DCMAKE_HIP_COMPILER=/opt/rocm/lib/llvm/bin/clang++
-cmake --build "$HOME/llama.cpp/build-rocm10" --target llama-server -j 8
-LLAMA_BIN="$HOME/llama.cpp/build-rocm10/bin/llama-server" \
+cmake --build "$HOME/llama.cpp/build-rocm10.2" --target llama-server -j 8
+LLAMA_BIN="$HOME/llama.cpp/build-rocm10.2/bin/llama-server" \
   bash scripts/run_llama.sh --list-devices
-LLAMA_BIN="$HOME/llama.cpp/build-rocm10/bin/llama-server" ./start_all.sh
+LLAMA_BIN="$HOME/llama.cpp/build-rocm10.2/bin/llama-server" ./start_all.sh
 ```
 
 既定では `~/llama.cpp/build/bin/llama-server` を使用します。
-`scripts/run_llama.sh` は `ROCM_PATH`（既定 `/opt/rocm`）から ROCm 10 の
+`scripts/run_llama.sh` は `ROCM_PATH`（既定 `/opt/rocm`）から ROCm の
 ライブラリパスを設定し、`HSA_OVERRIDE_GFX_VERSION` を解除します。
 別の SDK は `ROCM_PATH=/path/to/rocm` で指定できます。ビルド時の
 `CMAKE_PREFIX_PATH` と `CMAKE_HIP_COMPILER` も同じ SDK に合わせてください。
@@ -146,7 +146,7 @@ cp config/settings.local.toml.example config/settings.local.toml
 # config/settings.local.toml
 [musicbrainz]
 # MusicBrainz は User-Agent に連絡先を要求する(規約)
-contact = "you@example.com"
+contact = "YOUR_CONTACT"
 ```
 
 MusicBrainz を使わないなら、この設定は省いてよい(`enrich_mb.py` を

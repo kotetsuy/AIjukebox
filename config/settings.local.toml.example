@@ -4,7 +4,7 @@
 
 [musicbrainz]
 # MusicBrainz は User-Agent に連絡先を要求する(1req/秒制限と合わせて規約)
-contact = "you@example.com"
+contact = "YOUR_CONTACT"
 
 # 配信を LAN の外に出す場合はパスワードも変えること。
 # ただし Liquidsoap と Icecast 側は TOML を読まないので、

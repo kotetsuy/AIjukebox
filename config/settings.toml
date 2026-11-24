@@ -18,10 +18,10 @@ extensions = [".mp3", ".flac", ".m4a", ".ogg", ".opus"]
 # 実際のアドレスは config/settings.local.toml (git管理外) に書くこと。
 #
 #   [musicbrainz]
-#   contact = "you@example.com"
+#   contact = "YOUR_CONTACT"
 app_name = "AIjukebox"
 app_version = "0.1.0"
-contact = "CHANGE_ME@example.com"
+contact = "YOUR_CONTACT"
 # 1req/秒制限。余裕をみて 1.1 秒
 request_interval_sec = 1.1
 # ext:score がこの値未満の候補は採用しない
